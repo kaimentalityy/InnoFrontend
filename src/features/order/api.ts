@@ -1,5 +1,5 @@
 import axios from '../../shared/api/axios';
-import { Order, Item, PaginatedResponse } from '../../shared/types';
+import { Order, Item, CreateOrderRequest, PaginatedResponse } from '../../shared/types';
 
 export const orderApi = {
     getItems: async (): Promise<PaginatedResponse<Item> | Item[]> => {
@@ -10,7 +10,7 @@ export const orderApi = {
         const response = await axios.get(`/api/orders?userId=${userId}`);
         return response.data;
     },
-    createOrder: async (orderData: Partial<Order>): Promise<Order> => {
+    createOrder: async (orderData: CreateOrderRequest): Promise<Order> => {
         const response = await axios.post('/api/orders', orderData);
         return response.data;
     },

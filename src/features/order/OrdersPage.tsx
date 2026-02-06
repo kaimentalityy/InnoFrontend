@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { orderApi } from './api';
 import { Button } from '../../shared/ui/Button';
-import { Order } from '../../shared/types';
+import { Order, CreateOrderRequest } from '../../shared/types';
 
 export const OrdersPage: React.FC = () => {
     const [orders, setOrders] = useState<Order[]>([]);
+    const [items, setItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [loadingItems, setLoadingItems] = useState(false);
     const user = JSON.parse(localStorage.getItem('user') || '{}');
 
     const fetchOrders = async () => {
@@ -21,8 +23,27 @@ export const OrdersPage: React.FC = () => {
         }
     };
 
+    const fetchItems = async () => {
+        setLoadingItems(true);
+        try {
+            console.log('Starting to fetch items...');
+            const data = await orderApi.getItems();
+            console.log('Raw items data received:', data);
+            const itemsArray = Array.isArray(data) ? data : data.content;
+            console.log('Processed items array:', itemsArray);
+            setItems(itemsArray);
+        } catch (err: any) {
+            console.error('Failed to fetch items:', err);
+            console.error('Error response:', err.response);
+            console.error('Error status:', err.response?.status);
+        } finally {
+            setLoadingItems(false);
+        }
+    };
+
     useEffect(() => {
         fetchOrders();
+        fetchItems();
     }, []);
 
     const handleDeleteOrder = async (orderId: number) => {
@@ -35,19 +56,111 @@ export const OrdersPage: React.FC = () => {
         }
     };
 
-    const handlePayOrder = async (order: any) => {
+    const handleCreateOrder = async (item: any) => {
+        const token = localStorage.getItem('token');
+        console.log('Current token:', token);
+        
+        if (!user.id) {
+            alert('User not found');
+            return;
+        }
+        
+        if (!token) {
+            alert('No authentication token found');
+            return;
+        }
+        
+        console.log('Creating order with item:', item);
+        console.log('User ID:', user.id);
+        
         try {
-            await orderApi.updateOrder(order.id, { ...order, status: 'CONFIRMED' });
+            const orderData: CreateOrderRequest = {
+                userId: user.id,
+                status: 'PAYMENT_PENDING',
+                items: [{
+                    itemId: item.id,
+                    quantity: 1
+                }]
+            };
+            
+            console.log('Order data to send:', orderData);
+            const response = await orderApi.createOrder(orderData);
+            console.log('Order creation response:', response);
+            
             fetchOrders();
-        } catch (err) {
-            alert('Failed to process payment');
+        } catch (err: any) {
+            console.error('Failed to create order:', err);
+            console.error('Error response:', err.response);
+            console.error('Error status:', err.response?.status);
+            console.error('Error data:', err.response?.data);
+            
+            if (err.response?.status === 403) {
+                alert('Failed to create order: Access denied. Your token may be expired or you may not have permission to create orders.');
+            } else {
+                alert(`Failed to create order: ${err.response?.data?.message || err.message}`);
+            }
         }
     };
 
     return (
         <div className="container mt-4">
             <h2 className="text-secondary mb-4">My Orders</h2>
+            
+            {/* Available Items Section */}
+            <div className="card shadow-sm border-0 mb-4">
+                <div className="card-header bg-light">
+                    <h5 className="mb-0">Available Items</h5>
+                </div>
+                <div className="card-body p-0">
+                    {loadingItems ? (
+                        <div className="text-center py-4">
+                            <div className="spinner-border text-primary" role="status">
+                                <span className="visually-hidden">Loading items...</span>
+                            </div>
+                        </div>
+                    ) : (
+                        <table className="table table-hover mb-0">
+                            <thead className="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Price</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {items.map((item) => (
+                                    <tr key={item.id}>
+                                        <td>#{item.id}</td>
+                                        <td>{item.name}</td>
+                                        <td>${item.price}</td>
+                                        <td>
+                                            <Button 
+                                                variant="primary" 
+                                                size="sm" 
+                                                onClick={() => handleCreateOrder(item)}
+                                            >
+                                                Order
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {items.length === 0 && (
+                                    <tr>
+                                        <td colSpan={4} className="text-center py-4 text-muted">No items available.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            </div>
+
+            {/* Orders Section */}
             <div className="card shadow-sm border-0">
+                <div className="card-header bg-light">
+                    <h5 className="mb-0">Your Orders</h5>
+                </div>
                 <div className="card-body p-0">
                     <table className="table table-hover mb-0">
                         <thead className="table-light">
@@ -70,9 +183,6 @@ export const OrdersPage: React.FC = () => {
                                     <td>{new Date(order.createdDate || Date.now()).toLocaleDateString()}</td>
                                     <td>
                                         <div className="btn-group btn-group-sm">
-                                            {order.status === 'PAYMENT_PENDING' && (
-                                                <Button variant="success" size="sm" onClick={() => handlePayOrder(order)}>Pay</Button>
-                                            )}
                                             <Button variant="danger" size="sm" onClick={() => handleDeleteOrder(order.id)}>Delete</Button>
                                         </div>
                                     </td>

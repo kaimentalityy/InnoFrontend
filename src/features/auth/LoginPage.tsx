@@ -27,11 +27,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             let data;
             if (isLogin) {
                 data = await authApi.login({ username: credentials.username, password: credentials.password });
+                console.log('=== DEBUG: Login API response ===');
+                console.log('Login response data:', JSON.stringify(data, null, 2));
             } else {
                 data = await authApi.register(credentials);
+                console.log('=== DEBUG: Register API response ===');
+                console.log('Register response data:', JSON.stringify(data, null, 2));
             }
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data));
+            console.log('=== DEBUG: Stored in localStorage ===');
+            console.log('Stored user data:', JSON.stringify(data, null, 2));
             onLoginSuccess(data);
         } catch (err: any) {
             setError(err.response?.data?.message || 'Authentication failed');
