@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { paymentApi } from './api';
+import { orderApi } from '../order/api';
 import { Payment } from '../../shared/types';
 import { Button } from '../../shared/ui/Button';
 
@@ -28,7 +29,6 @@ export const PaymentPage: React.FC = () => {
             } catch (paymentApiError) {
                 console.log('Payment API error:', paymentApiError);
                 console.log('Payment API not available, falling back to order data');
-                const { orderApi } = await import('../order/api');
                 console.log('Trying order API for user:', user.id);
                 const orderData = await orderApi.getOrders(user.id);
                 console.log('Order API response:', orderData);
