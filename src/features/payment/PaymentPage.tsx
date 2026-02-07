@@ -12,43 +12,30 @@ export const PaymentPage: React.FC = () => {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
 
     const fetchPayments = async () => {
-        console.log('User from localStorage:', user);
         if (!user.id) {
-            console.log('No user ID found');
             return;
         }
         setLoading(true);
         setError(null);
         try {
             try {
-                console.log('Trying payment API for user:', user.id);
                 const paymentData = await paymentApi.getPaymentsFromConfirmedOrders(user.id);
-                console.log('Payment API response:', paymentData);
                 const paymentsArray = Array.isArray(paymentData) ? paymentData : [];
                 setPayments(paymentsArray);
             } catch (paymentApiError) {
-                console.log('Payment API error:', paymentApiError);
-                console.log('Payment API not available, falling back to order data');
-                console.log('Trying order API for user:', user.id);
                 const orderData = await orderApi.getOrders(user.id);
-                console.log('Order API response:', orderData);
                 const orders = Array.isArray(orderData) ? orderData : orderData.content;
                 const confirmedOrders = orders.filter((o: any) => o.status === 'CONFIRMED');
-                console.log('Confirmed orders:', confirmedOrders);
                 
                 let allItems: any[] = [];
                 try {
                     const itemsData = await orderApi.getItems();
                     allItems = Array.isArray(itemsData) ? itemsData : itemsData.content;
-                    console.log('Available items:', allItems);
                 } catch (error) {
                     console.error('Failed to fetch items:', error);
                 }
                 
                 const transformedPayments: Payment[] = confirmedOrders.map((order: any) => {
-                    console.log('Processing order:', order);
-                    console.log('Order items:', order.items);
-                    
                     let amount = 0;
                     if (order.items && order.items.length > 0 && allItems.length > 0) {
                         amount = order.items.reduce((sum: number, orderItem: any) => {
@@ -56,12 +43,9 @@ export const PaymentPage: React.FC = () => {
                             const itemDetails = allItems.find((item: any) => item.id === itemId);
                             const itemPrice = itemDetails?.price || 0;
                             const quantity = orderItem.quantity || 1;
-                            console.log(`Item ${itemId}: ${itemDetails?.name || 'Unknown'} - $${itemPrice} x ${quantity} = $${itemPrice * quantity}`);
                             return sum + (itemPrice * quantity);
                         }, 0);
                     }
-                    
-                    console.log('Final calculated amount for order', order.id, ':', amount);
                     
                     return {
                         id: order.id,
@@ -74,7 +58,6 @@ export const PaymentPage: React.FC = () => {
                     };
                 });
                 
-                console.log('Transformed payments:', transformedPayments);
                 setPayments(transformedPayments);
             }
         } catch (err) {
