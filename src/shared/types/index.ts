@@ -1,11 +1,10 @@
 export interface User {
-    id?: number;
-    username: string;
+    id?: string;
     email: string;
     name: string;
     surname: string;
     birthDate: string;
-    role?: string;
+    roles?: string[];
 }
 
 export interface UpdateUserRequest {
@@ -32,14 +31,14 @@ export interface OrderItem {
 
 export interface Order {
     id: number;
-    userId: number;
+    userId: string;
     status: 'PAYMENT_PENDING' | 'CONFIRMED' | string;
     createdDate: string;
     items?: Item[];
 }
 
 export interface CreateOrderRequest {
-    userId: number;
+    userId: string;
     status: string;
     items: OrderItem[];
 }
@@ -47,7 +46,7 @@ export interface CreateOrderRequest {
 export interface Payment {
     id: number;
     orderId: number;
-    userId: number;
+    userId: string;
     amount: number;
     status: 'PENDING' | 'COMPLETED' | 'FAILED';
     paymentDate: string;
@@ -55,12 +54,16 @@ export interface Payment {
 }
 
 export interface LoginCredentials {
-    username: string;
-    password?: string;
+    email: string;
+    password: string;
 }
 
-export interface RegisterData extends User {
-    password?: string;
+export interface RegisterData {
+    email: string;
+    password: string;
+    name: string;
+    surname: string;
+    birthDate: string;
 }
 
 export interface PaginatedResponse<T> {

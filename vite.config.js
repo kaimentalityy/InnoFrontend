@@ -5,28 +5,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api/auth': {
+      '/api': {
         target: 'http://localhost:8080',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/api/users': {
-        target: 'http://localhost:8082',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/api/orders': {
-        target: 'http://localhost:8086',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/api/items': {
-        target: 'http://localhost:8086',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/api/payments': {
-        target: 'http://localhost:8087',
         changeOrigin: true,
         secure: false,
       },
