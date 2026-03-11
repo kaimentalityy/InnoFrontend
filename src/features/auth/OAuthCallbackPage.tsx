@@ -3,17 +3,6 @@ import { authApi, parseJwt } from './api';
 import axios from '../../shared/api/axios';
 
 
-/**
- * This page lives at /oauth/callback.
- * Keycloak (and Google Cloud Console) must have this URL registered as a valid redirect URI.
- *
- * Flow:
- *  1. User clicks "Continue with Google" on LoginPage.
- *  2. Browser redirects to Keycloak → Google.
- *  3. Google redirects back to Keycloak.
- *  4. Keycloak redirects to THIS page with ?code=...&state=...
- *  5. We exchange the code for tokens, store them, and navigate to /orders.
- */
 export const OAuthCallbackPage: React.FC = () => {
     const [status, setStatus] = useState<'loading' | 'error'>('loading');
     const [errorMsg, setErrorMsg] = useState('');
@@ -62,7 +51,6 @@ export const OAuthCallbackPage: React.FC = () => {
                     .then((response: any) => {
                         const userData = response.data;
                         user.id = userData.id;
-                        console.log('Fetched user data from backend:', userData);
 
                         localStorage.setItem('token', tokenData.access_token);
                         localStorage.setItem('refresh_token', tokenData.refresh_token);
@@ -70,7 +58,6 @@ export const OAuthCallbackPage: React.FC = () => {
                         window.location.href = '/orders';
                     })
                     .catch((error: any) => {
-                        console.warn('Could not fetch user data from backend, using UUID:', error);
                         localStorage.setItem('token', tokenData.access_token);
                         localStorage.setItem('refresh_token', tokenData.refresh_token);
                         localStorage.setItem('user', JSON.stringify(user));

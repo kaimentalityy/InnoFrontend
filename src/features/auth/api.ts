@@ -39,7 +39,6 @@ export interface RegisterResponse {
     birthDate: string;
 }
 
-/** Decode a JWT payload without verifying the signature (client-side display only). */
 export function parseJwt(token: string): Record<string, any> {
     try {
         const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
@@ -49,11 +48,47 @@ export function parseJwt(token: string): Record<string, any> {
     }
 }
 
+function generateCodeVerifier(): string {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return btoa(String.fromCharCode(...array))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+}
+
+async function generateCodeChallenge(verifier: string): Promise<string> {
+    const data = new TextEncoder().encode(verifier);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    return btoa(String.fromCharCode(...new Uint8Array(digest)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+}
+
 export const authApi = {
-    /**
-     * Login directly against Keycloak's token endpoint using Resource Owner
-     * Password Credentials grant. Returns raw Keycloak token response.
-     */
+    redirectToLogin: async (): Promise<void> => {
+        const state = crypto.randomUUID();
+        const verifier = generateCodeVerifier();
+        const challenge = await generateCodeChallenge(verifier);
+
+        sessionStorage.setItem('oauth_state', state);
+        sessionStorage.setItem('pkce_verifier', verifier);
+
+        const params = new URLSearchParams({
+            response_type: 'code',
+            client_id: KEYCLOAK_CLIENT_ID,
+            redirect_uri: OAUTH_REDIRECT_URI,
+            scope: 'openid email profile',
+            state,
+            code_challenge: challenge,
+            code_challenge_method: 'S256',
+        });
+
+        window.location.href =
+            `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/auth?${params}`;
+    },
+
     login: async (credentials: LoginCredentials): Promise<KeycloakTokenResponse> => {
         const params = new URLSearchParams();
         params.append('grant_type', 'password');
@@ -82,13 +117,8 @@ export const authApi = {
         return response.json();
     },
 
-    /**
-     * Register directly against the User Service, which creates the Keycloak
-     * user and the local DB profile in one step.
-     */
     register: async (data: RegisterData): Promise<RegisterResponse> => {
         try {
-            console.log('[api.register] Sending request...');
             const response = await axios.post('/api/users/register', {
                 email: data.email,
                 password: data.password,
@@ -96,10 +126,8 @@ export const authApi = {
                 surname: data.surname,
                 birthDate: data.birthDate,
             });
-            console.log('[api.register] Response status:', response.status, 'data:', response.data);
             return response.data;
         } catch (err: any) {
-            console.error('[api.register] Axios error - status:', err?.response?.status, 'data:', err?.response?.data, 'message:', err?.message);
             if (err.response?.status === 409) {
                 throw new Error('An account with this email already exists. Please sign in instead.');
             }
@@ -107,9 +135,6 @@ export const authApi = {
         }
     },
 
-    /**
-     * Fetch a new access token using a refresh token.
-     */
     refreshToken: async (refreshToken: string): Promise<KeycloakTokenResponse> => {
         const params = new URLSearchParams();
         params.append('grant_type', 'refresh_token');
@@ -135,9 +160,6 @@ export const authApi = {
         return response.json();
     },
 
-    /**
-     * Logout from Keycloak session.
-     */
     logout: async (refreshToken: string): Promise<void> => {
         const params = new URLSearchParams();
         params.append('client_id', KEYCLOAK_CLIENT_ID);
@@ -153,20 +175,16 @@ export const authApi = {
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: params.toString(),
             }
-        ).catch(() => { }); // Best-effort
+        ).catch(() => { });
     },
 
-    /**
-     * Redirect the browser to Keycloak's authorization endpoint.
-     * Keycloak will show a "Login with Google" button because you've
-     * configured the Google identity provider there.
-     *
-     * A PKCE `state` value is saved to sessionStorage so the callback
-     * page can verify the response is legitimate.
-     */
-    loginWithGoogle: (): void => {
+    loginWithGoogle: async (): Promise<void> => {
         const state = crypto.randomUUID();
+        const verifier = generateCodeVerifier();
+        const challenge = await generateCodeChallenge(verifier);
+
         sessionStorage.setItem('oauth_state', state);
+        sessionStorage.setItem('pkce_verifier', verifier);
 
         const params = new URLSearchParams({
             response_type: 'code',
@@ -175,17 +193,18 @@ export const authApi = {
             scope: 'openid email profile',
             state,
             kc_idp_hint: GOOGLE_IDP_ALIAS,
+            code_challenge: challenge,
+            code_challenge_method: 'S256',
         });
 
         window.location.href =
             `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/auth?${params}`;
     },
 
-    /**
-     * Exchange the authorization code (from the OAuth callback URL) for tokens.
-     * Call this from your /oauth/callback route after verifying `state`.
-     */
     exchangeCodeForToken: async (code: string): Promise<KeycloakTokenResponse> => {
+        const verifier = sessionStorage.getItem('pkce_verifier');
+        sessionStorage.removeItem('pkce_verifier');
+
         const params = new URLSearchParams();
         params.append('grant_type', 'authorization_code');
         params.append('client_id', KEYCLOAK_CLIENT_ID);
@@ -194,6 +213,9 @@ export const authApi = {
         }
         params.append('code', code);
         params.append('redirect_uri', OAUTH_REDIRECT_URI);
+        if (verifier) {
+            params.append('code_verifier', verifier);
+        }
 
         const response = await fetch(
             `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token`,
@@ -206,7 +228,7 @@ export const authApi = {
 
         if (!response.ok) {
             const err = await response.json().catch(() => ({}));
-            const msg = (err as any)?.error_description || 'Google login failed';
+            const msg = (err as any)?.error_description || 'Login failed';
             throw new Error(msg);
         }
 

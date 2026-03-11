@@ -32,36 +32,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
         try {
             if (isLogin) {
-                const credentials: LoginCredentials = {
-                    email: form.email,
-                    password: form.password,
-                };
-                const tokenData = await authApi.login(credentials);
-
-                const claims = parseJwt(tokenData.access_token);
-
-                const user = {
-                    id: claims.sub,
-                    email: claims.email || claims.sub || form.email,
-                    name: claims.given_name || '',
-                    surname: claims.family_name || '',
-                    roles: claims.realm_access?.roles || [],
-                };
-
-                try {
-                    const response = await axios.get(`/api/users/email/${user.email}`);
-                    const userData = response.data;
-                    console.log('Fetched user data from backend:', userData);
-                } catch (error) {
-                    console.warn('Could not fetch user data from backend, using UUID:', error);
-                }
-
-                localStorage.setItem('token', tokenData.access_token);
-                localStorage.setItem('refresh_token', tokenData.refresh_token);
-                localStorage.setItem('user', JSON.stringify(user));
-
-                onLoginSuccess(user);
-
+                await authApi.redirectToLogin();
+                return;
             } else {
                 const registerData: RegisterData = {
                     email: form.email,
@@ -114,7 +86,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     boxShadow: '0 25px 50px rgba(0,0,0,0.5)',
                 }}
             >
-                {/* Logo / Title */}
                 <div style={{ textAlign: 'center', marginBottom: '36px' }}>
                     <div
                         style={{
@@ -147,7 +118,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     </p>
                 </div>
 
-                {/* Tab Toggle */}
                 <div
                     style={{
                         display: 'flex',
@@ -182,34 +152,36 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     ))}
                 </div>
 
-                {/* Form */}
                 <form onSubmit={handleSubmit}>
-                    {/* Email */}
-                    <InputField
-                        label="Email"
-                        type="email"
-                        id="auth-email"
-                        value={form.email}
-                        onChange={handleChange('email')}
-                        placeholder="you@example.com"
-                        required
-                    />
-
-                    {/* Password */}
-                    <InputField
-                        label="Password"
-                        type="password"
-                        id="auth-password"
-                        value={form.password}
-                        onChange={handleChange('password')}
-                        placeholder="Min. 8 characters"
-                        required
-                        minLength={8}
-                    />
-
-                    {/* Register-only fields */}
-                    {!isLogin && (
+                    {isLogin ? (
                         <>
+                            <div style={{ marginBottom: '24px', textAlign: 'center' }}>
+                                <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', lineHeight: '1.6' }}>
+                                    You will be redirected to our secure login provider to complete your sign-in.
+                                </p>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <InputField
+                                label="Email"
+                                type="email"
+                                id="auth-email"
+                                value={form.email}
+                                onChange={handleChange('email')}
+                                placeholder="you@example.com"
+                                required
+                            />
+                            <InputField
+                                label="Password"
+                                type="password"
+                                id="auth-password"
+                                value={form.password}
+                                onChange={handleChange('password')}
+                                placeholder="Min. 8 characters"
+                                required
+                                minLength={8}
+                            />
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                                 <InputField
                                     label="First Name"
@@ -241,7 +213,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         </>
                     )}
 
-                    {/* Success Message */}
                     {successMessage && (
                         <div
                             style={{
@@ -258,7 +229,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         </div>
                     )}
 
-                    {/* Error Message */}
                     {error && (
                         <div
                             style={{
@@ -275,7 +245,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         </div>
                     )}
 
-                    {/* Submit */}
                     <button
                         id="auth-submit"
                         type="submit"
@@ -312,7 +281,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                                 {isLogin ? 'Signing in...' : 'Creating account...'}
                             </span>
                         ) : (
-                            isLogin ? 'Sign In' : 'Create Account'
+                            isLogin ? 'Sign In with Keycloak' : 'Create Account'
                         )}
                     </button>
 
@@ -362,7 +331,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         </>
                     )}
 
-                    {/* Switch mode link */}
                     <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.45)', fontSize: '13px', marginTop: '20px' }}>
                         {isLogin ? "Don't have an account? " : 'Already have an account? '}
                         <button
