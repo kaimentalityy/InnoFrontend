@@ -39,7 +39,6 @@ export interface RegisterResponse {
     birthDate: string;
 }
 
-/** Decode a JWT payload without verifying the signature (client-side display only). */
 export function parseJwt(token: string): Record<string, any> {
     try {
         const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
@@ -49,11 +48,6 @@ export function parseJwt(token: string): Record<string, any> {
     }
 }
 
-// ---------------------------------------------------------------------------
-// PKCE helpers
-// ---------------------------------------------------------------------------
-
-/** Generate a cryptographically random code_verifier (RFC 7636). */
 function generateCodeVerifier(): string {
     const array = new Uint8Array(32);
     crypto.getRandomValues(array);
@@ -63,7 +57,6 @@ function generateCodeVerifier(): string {
         .replace(/=+$/, '');
 }
 
-/** Derive the SHA-256 code_challenge from a verifier. */
 async function generateCodeChallenge(verifier: string): Promise<string> {
     const data = new TextEncoder().encode(verifier);
     const digest = await crypto.subtle.digest('SHA-256', data);
@@ -73,14 +66,7 @@ async function generateCodeChallenge(verifier: string): Promise<string> {
         .replace(/=+$/, '');
 }
 
-// ---------------------------------------------------------------------------
-
 export const authApi = {
-    /**
-     * Redirect the browser to Keycloak's authorization endpoint for standard login.
-     * Uses PKCE (S256) so Keycloak does not reject the request with
-     * "Missing parameter: code_challenge_method".
-     */
     redirectToLogin: async (): Promise<void> => {
         const state = crypto.randomUUID();
         const verifier = generateCodeVerifier();
@@ -103,13 +89,7 @@ export const authApi = {
             `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/auth?${params}`;
     },
 
-    /**
-     * @deprecated Use redirectToLogin() to comply with modern security standards (Authorization Code flow).
-     * Login directly against Keycloak's token endpoint using Resource Owner
-     * Password Credentials grant. Returns raw Keycloak token response.
-     */
     login: async (credentials: LoginCredentials): Promise<KeycloakTokenResponse> => {
-        // ... (remaining implementation kept for backward compatibility if needed temporarily)
         const params = new URLSearchParams();
         params.append('grant_type', 'password');
         params.append('client_id', KEYCLOAK_CLIENT_ID);
@@ -137,13 +117,8 @@ export const authApi = {
         return response.json();
     },
 
-    /**
-     * Register directly against the User Service, which creates the Keycloak
-     * user and the local DB profile in one step.
-     */
     register: async (data: RegisterData): Promise<RegisterResponse> => {
         try {
-            console.log('[api.register] Sending request...');
             const response = await axios.post('/api/users/register', {
                 email: data.email,
                 password: data.password,
@@ -151,10 +126,8 @@ export const authApi = {
                 surname: data.surname,
                 birthDate: data.birthDate,
             });
-            console.log('[api.register] Response status:', response.status, 'data:', response.data);
             return response.data;
         } catch (err: any) {
-            console.error('[api.register] Axios error - status:', err?.response?.status, 'data:', err?.response?.data, 'message:', err?.message);
             if (err.response?.status === 409) {
                 throw new Error('An account with this email already exists. Please sign in instead.');
             }
@@ -162,9 +135,6 @@ export const authApi = {
         }
     },
 
-    /**
-     * Fetch a new access token using a refresh token.
-     */
     refreshToken: async (refreshToken: string): Promise<KeycloakTokenResponse> => {
         const params = new URLSearchParams();
         params.append('grant_type', 'refresh_token');
@@ -190,9 +160,6 @@ export const authApi = {
         return response.json();
     },
 
-    /**
-     * Logout from Keycloak session.
-     */
     logout: async (refreshToken: string): Promise<void> => {
         const params = new URLSearchParams();
         params.append('client_id', KEYCLOAK_CLIENT_ID);
@@ -208,16 +175,9 @@ export const authApi = {
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: params.toString(),
             }
-        ).catch(() => { }); // Best-effort
+        ).catch(() => { });
     },
 
-    /**
-     * Redirect the browser to Keycloak's authorization endpoint.
-     * Keycloak will show a "Login with Google" button because you've
-     * configured the Google identity provider there.
-     *
-     * PKCE (S256) is included so Keycloak does not reject the request.
-     */
     loginWithGoogle: async (): Promise<void> => {
         const state = crypto.randomUUID();
         const verifier = generateCodeVerifier();
@@ -241,14 +201,9 @@ export const authApi = {
             `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/auth?${params}`;
     },
 
-    /**
-     * Exchange the authorization code (from the OAuth callback URL) for tokens.
-     * Must include the PKCE code_verifier that was used to build the original
-     * code_challenge — Keycloak will validate the pair.
-     */
     exchangeCodeForToken: async (code: string): Promise<KeycloakTokenResponse> => {
         const verifier = sessionStorage.getItem('pkce_verifier');
-        sessionStorage.removeItem('pkce_verifier'); // single-use
+        sessionStorage.removeItem('pkce_verifier');
 
         const params = new URLSearchParams();
         params.append('grant_type', 'authorization_code');

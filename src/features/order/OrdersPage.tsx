@@ -176,7 +176,6 @@ export const OrdersPage: React.FC = () => {
         <div className="container mt-4">
             <h2 className="text-secondary mb-4">My Orders</h2>
 
-            {/* Available Items Section */}
             <div className="card shadow-sm border-0 mb-4">
                 <div className="card-header bg-light d-flex justify-content-between align-items-center">
                     <h5 className="mb-0">Available Items</h5>
@@ -244,7 +243,6 @@ export const OrdersPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Orders Section */}
             <div className="card shadow-sm border-0">
                 <div className="card-header bg-light">
                     <h5 className="mb-0">Your Orders</h5>
@@ -286,7 +284,6 @@ export const OrdersPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Create Item Modal */}
             {showCreateItem && (
                 <div className="modal show d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
                     <div className="modal-dialog">

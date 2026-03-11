@@ -32,7 +32,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
         try {
             if (isLogin) {
-                // Redirect to Keycloak for Authorization Code flow (PKCE)
                 await authApi.redirectToLogin();
                 return;
             } else {
@@ -87,7 +86,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     boxShadow: '0 25px 50px rgba(0,0,0,0.5)',
                 }}
             >
-                {/* Logo / Title */}
                 <div style={{ textAlign: 'center', marginBottom: '36px' }}>
                     <div
                         style={{
@@ -120,7 +118,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     </p>
                 </div>
 
-                {/* Tab Toggle */}
                 <div
                     style={{
                         display: 'flex',
@@ -155,7 +152,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     ))}
                 </div>
 
-                {/* Form */}
                 <form onSubmit={handleSubmit}>
                     {isLogin ? (
                         <>
@@ -217,7 +213,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         </>
                     )}
 
-                    {/* Success Message */}
                     {successMessage && (
                         <div
                             style={{
@@ -234,7 +229,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         </div>
                     )}
 
-                    {/* Error Message */}
                     {error && (
                         <div
                             style={{
@@ -251,7 +245,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         </div>
                     )}
 
-                    {/* Submit */}
                     <button
                         id="auth-submit"
                         type="submit"
@@ -338,7 +331,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         </>
                     )}
 
-                    {/* Switch mode link */}
                     <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.45)', fontSize: '13px', marginTop: '20px' }}>
                         {isLogin ? "Don't have an account? " : 'Already have an account? '}
                         <button
