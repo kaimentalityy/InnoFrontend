@@ -3,6 +3,7 @@ interface ImportMetaEnv {
     readonly VITE_KEYCLOAK_REALM: string;
     readonly VITE_KEYCLOAK_CLIENT_ID: string;
     readonly VITE_KEYCLOAK_CLIENT_SECRET: string;
+    readonly VITE_GOOGLE_IDP_ALIAS: string;
 }
 
 interface ImportMeta {

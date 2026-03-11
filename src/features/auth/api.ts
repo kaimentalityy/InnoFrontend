@@ -49,12 +49,67 @@ export function parseJwt(token: string): Record<string, any> {
     }
 }
 
+// ---------------------------------------------------------------------------
+// PKCE helpers
+// ---------------------------------------------------------------------------
+
+/** Generate a cryptographically random code_verifier (RFC 7636). */
+function generateCodeVerifier(): string {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return btoa(String.fromCharCode(...array))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+}
+
+/** Derive the SHA-256 code_challenge from a verifier. */
+async function generateCodeChallenge(verifier: string): Promise<string> {
+    const data = new TextEncoder().encode(verifier);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    return btoa(String.fromCharCode(...new Uint8Array(digest)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+}
+
+// ---------------------------------------------------------------------------
+
 export const authApi = {
     /**
+     * Redirect the browser to Keycloak's authorization endpoint for standard login.
+     * Uses PKCE (S256) so Keycloak does not reject the request with
+     * "Missing parameter: code_challenge_method".
+     */
+    redirectToLogin: async (): Promise<void> => {
+        const state = crypto.randomUUID();
+        const verifier = generateCodeVerifier();
+        const challenge = await generateCodeChallenge(verifier);
+
+        sessionStorage.setItem('oauth_state', state);
+        sessionStorage.setItem('pkce_verifier', verifier);
+
+        const params = new URLSearchParams({
+            response_type: 'code',
+            client_id: KEYCLOAK_CLIENT_ID,
+            redirect_uri: OAUTH_REDIRECT_URI,
+            scope: 'openid email profile',
+            state,
+            code_challenge: challenge,
+            code_challenge_method: 'S256',
+        });
+
+        window.location.href =
+            `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/auth?${params}`;
+    },
+
+    /**
+     * @deprecated Use redirectToLogin() to comply with modern security standards (Authorization Code flow).
      * Login directly against Keycloak's token endpoint using Resource Owner
      * Password Credentials grant. Returns raw Keycloak token response.
      */
     login: async (credentials: LoginCredentials): Promise<KeycloakTokenResponse> => {
+        // ... (remaining implementation kept for backward compatibility if needed temporarily)
         const params = new URLSearchParams();
         params.append('grant_type', 'password');
         params.append('client_id', KEYCLOAK_CLIENT_ID);
@@ -161,12 +216,15 @@ export const authApi = {
      * Keycloak will show a "Login with Google" button because you've
      * configured the Google identity provider there.
      *
-     * A PKCE `state` value is saved to sessionStorage so the callback
-     * page can verify the response is legitimate.
+     * PKCE (S256) is included so Keycloak does not reject the request.
      */
-    loginWithGoogle: (): void => {
+    loginWithGoogle: async (): Promise<void> => {
         const state = crypto.randomUUID();
+        const verifier = generateCodeVerifier();
+        const challenge = await generateCodeChallenge(verifier);
+
         sessionStorage.setItem('oauth_state', state);
+        sessionStorage.setItem('pkce_verifier', verifier);
 
         const params = new URLSearchParams({
             response_type: 'code',
@@ -175,6 +233,8 @@ export const authApi = {
             scope: 'openid email profile',
             state,
             kc_idp_hint: GOOGLE_IDP_ALIAS,
+            code_challenge: challenge,
+            code_challenge_method: 'S256',
         });
 
         window.location.href =
@@ -183,9 +243,13 @@ export const authApi = {
 
     /**
      * Exchange the authorization code (from the OAuth callback URL) for tokens.
-     * Call this from your /oauth/callback route after verifying `state`.
+     * Must include the PKCE code_verifier that was used to build the original
+     * code_challenge — Keycloak will validate the pair.
      */
     exchangeCodeForToken: async (code: string): Promise<KeycloakTokenResponse> => {
+        const verifier = sessionStorage.getItem('pkce_verifier');
+        sessionStorage.removeItem('pkce_verifier'); // single-use
+
         const params = new URLSearchParams();
         params.append('grant_type', 'authorization_code');
         params.append('client_id', KEYCLOAK_CLIENT_ID);
@@ -194,6 +258,9 @@ export const authApi = {
         }
         params.append('code', code);
         params.append('redirect_uri', OAUTH_REDIRECT_URI);
+        if (verifier) {
+            params.append('code_verifier', verifier);
+        }
 
         const response = await fetch(
             `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token`,
@@ -206,7 +273,7 @@ export const authApi = {
 
         if (!response.ok) {
             const err = await response.json().catch(() => ({}));
-            const msg = (err as any)?.error_description || 'Google login failed';
+            const msg = (err as any)?.error_description || 'Login failed';
             throw new Error(msg);
         }
 

@@ -32,36 +32,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
         try {
             if (isLogin) {
-                const credentials: LoginCredentials = {
-                    email: form.email,
-                    password: form.password,
-                };
-                const tokenData = await authApi.login(credentials);
-
-                const claims = parseJwt(tokenData.access_token);
-
-                const user = {
-                    id: claims.sub,
-                    email: claims.email || claims.sub || form.email,
-                    name: claims.given_name || '',
-                    surname: claims.family_name || '',
-                    roles: claims.realm_access?.roles || [],
-                };
-
-                try {
-                    const response = await axios.get(`/api/users/email/${user.email}`);
-                    const userData = response.data;
-                    console.log('Fetched user data from backend:', userData);
-                } catch (error) {
-                    console.warn('Could not fetch user data from backend, using UUID:', error);
-                }
-
-                localStorage.setItem('token', tokenData.access_token);
-                localStorage.setItem('refresh_token', tokenData.refresh_token);
-                localStorage.setItem('user', JSON.stringify(user));
-
-                onLoginSuccess(user);
-
+                // Redirect to Keycloak for Authorization Code flow (PKCE)
+                await authApi.redirectToLogin();
+                return;
             } else {
                 const registerData: RegisterData = {
                     email: form.email,
@@ -184,32 +157,35 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
                 {/* Form */}
                 <form onSubmit={handleSubmit}>
-                    {/* Email */}
-                    <InputField
-                        label="Email"
-                        type="email"
-                        id="auth-email"
-                        value={form.email}
-                        onChange={handleChange('email')}
-                        placeholder="you@example.com"
-                        required
-                    />
-
-                    {/* Password */}
-                    <InputField
-                        label="Password"
-                        type="password"
-                        id="auth-password"
-                        value={form.password}
-                        onChange={handleChange('password')}
-                        placeholder="Min. 8 characters"
-                        required
-                        minLength={8}
-                    />
-
-                    {/* Register-only fields */}
-                    {!isLogin && (
+                    {isLogin ? (
                         <>
+                            <div style={{ marginBottom: '24px', textAlign: 'center' }}>
+                                <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', lineHeight: '1.6' }}>
+                                    You will be redirected to our secure login provider to complete your sign-in.
+                                </p>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <InputField
+                                label="Email"
+                                type="email"
+                                id="auth-email"
+                                value={form.email}
+                                onChange={handleChange('email')}
+                                placeholder="you@example.com"
+                                required
+                            />
+                            <InputField
+                                label="Password"
+                                type="password"
+                                id="auth-password"
+                                value={form.password}
+                                onChange={handleChange('password')}
+                                placeholder="Min. 8 characters"
+                                required
+                                minLength={8}
+                            />
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                                 <InputField
                                     label="First Name"
@@ -312,7 +288,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                                 {isLogin ? 'Signing in...' : 'Creating account...'}
                             </span>
                         ) : (
-                            isLogin ? 'Sign In' : 'Create Account'
+                            isLogin ? 'Sign In with Keycloak' : 'Create Account'
                         )}
                     </button>
 
